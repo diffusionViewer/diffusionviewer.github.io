@@ -373,15 +373,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     multMatrix(bbregmatrix);
 
     // Draw connectome nodes
-    if (gShowConnectomeNodes)
-    {
-        gConnectome.drawConnectomeNodes(pMatrix, mvMatrix);
-    }
-
-    if (gShowConnectomeEdges)
-    {
-        gConnectome.drawConnectomeEdges(pMatrix, mvMatrix);
-    }
+    
     
     gl.frontFace( gl.CCW );
     gl.enable( gl.CULL_FACE );
@@ -422,17 +414,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   }
 
-var gHemisphere = [ true, true ];
-var gHemisphereNames = [ 'lh', 'rh' ];
-var gSurface = 'smoothwm'
-var gCurvature = undefined;
+
+
+
 var gShowTracks = true;
-var gShowConnectomeNodes = false;
-var gShowConnectomeEdges = false;
-var gThreshold = 0;
-var gShowHistogram = false;
-var gCurMinCurv = 0.0;
-var gCurMaxCurv = 0.0;
+
+
 
   function webGLStart() {
     var canvas = document.getElementById("webgl-canvas");
