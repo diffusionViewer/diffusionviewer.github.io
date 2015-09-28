@@ -112,7 +112,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   function initGL(canvas)
   {
     try {
-      gl = canvas.getContext("experimental-webgl");
+      gl = canvas.getContext("webgl");
       gl.viewportWidth = canvas.width;
       gl.viewportHeight = canvas.height;
     } catch(e) {
@@ -465,13 +465,6 @@ function toggleTracks()
     gShowTracks = $('#tractography:checked').val();
 }
 
-function toggleThreshold()
-{
-    if ($('#threshold:checked').val() == "on")
-        gThreshold = 1;
-    else
-        gThreshold = 0;
-}
 
 
 
