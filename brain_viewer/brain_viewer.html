@@ -213,7 +213,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   var lastMouseX = null;
   var lastMouseY = null;
 
-  var brainRotationMatrix = Matrix.I(4);
+
+  var brainRotationMatrix = $M([
+  [-1,0,0,0],
+  [0,0,1,0],
+  [0,1,0,0],
+  [0,0,0,1]
+  ]);
+  //var brainRotationMatrix = Matrix.I(4);
 
   function handleMouseDown(event) {
     mouseDown = true;
