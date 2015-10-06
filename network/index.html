@@ -1,0 +1,545 @@
+<!--Experrrrrrimentallllll
+
+-->
+
+<html>
+
+<head>
+<style type="text/css">
+                        html, body {
+			        height: 100%;
+			        background-color: #121212;
+			}
+                        body {
+			        margin: 0px;
+			        border: 0px;
+                        }
+			.box25 {
+				float: left;
+				width: 25%;
+                                height:100%;
+                	}
+                        .box75 {
+                                float: left;
+                                width: 75%;
+                                height:100%;
+                        }
+			
+			.container {
+				clear: both;
+			}
+
+                        canvas {
+                            margin: 0px;
+                            border: 0px;
+                            width: 100%;
+                            height:100%;
+                        }
+
+                        .centered_text {
+                            font-size: 10px;
+                            text-align: center;                            
+                        }
+
+		</style>
+<title>Brain Surface and Tractography Viewer</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<link type="text/css" href="/jquery/css/vader/jquery-ui-1.8.7.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="/jquery/js/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="/jquery/js/jquery-ui-1.8.7.custom.min.js"></script>
+
+<script type="text/javascript" src="/common/sylvester.js"></script>
+<script type="text/javascript" src="/common/glUtils.js"></script>
+<script type="text/javascript" src="/common/binaryParseUtils.js"></script>
+<script type="text/javascript" src="/common/mrisLoader.js"></script>
+<script type="text/javascript" src="/common/crvLoader.js"></script>
+<script type="text/javascript" src="/common/trkLoader.js"></script>
+<script type="text/javascript" src="/common/brainSurface.js"></script>
+<script type="text/javascript" src="/common/tractography.js"></script>
+<script type="text/javascript" src="/common/scalarBar.js"></script>
+<script type="text/javascript" src="/common/textLayer.js"></script>
+<script type="text/javascript" src="/common/histogram.js"></script>
+<script type="text/javascript" src="/common/connectomeLoader.js"></script>
+<script type="text/javascript" src="/common/connectome.js"></script>
+<script type="text/javascript" src="/common/esShapes.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/threejs/r69/three.min.js"></script>
+
+
+<script type="text/javascript">
+
+    /**
+     * Provides requestAnimationFrame in a cross browser
+     * way.
+     */
+  if (!window.requestAnimationFrame) {
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+             window.webkitRequestAnimationFrame ||
+             window.mozRequestAnimationFrame ||
+             window.oRequestAnimationFrame ||
+             window.msRequestAnimationFrame ||
+             function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
+               window.setTimeout(callback, 1000/60);
+             };
+    })();
+  }
+       
+  var gl;
+  function initGL(canvas)
+  {
+    try {
+      gl = canvas.getContext("webgl");
+      gl.viewportWidth = canvas.width;
+      gl.viewportHeight = canvas.height;
+    } catch(e) {
+    }
+    if (!gl) {
+      alert("Could not initialise WebGL.  Please make sure your browser supports WebGL.");
+    }
+  }
+
+
+  
+  var mvMatrix;
+
+  function loadIdentity() {
+    mvMatrix = Matrix.I(4);
+  }
+
+
+  function multMatrix(m) {
+    mvMatrix = mvMatrix.x(m);
+  }
+
+
+  function mvTranslate(v) {
+    var m = Matrix.Translation($V([v[0], v[1], v[2]])).ensure4x4();
+    multMatrix(m);
+  }
+
+  function createRotationMatrix(angle, v) {
+    var arad = angle * Math.PI / 180.0;
+    return Matrix.Rotation(arad, $V([v[0], v[1], v[2]])).ensure4x4();
+  }
+
+  function mvRotate(ang, v) {
+    var arad = ang * Math.PI / 180.0;
+    var m = Matrix.Rotation(arad, $V([v[0], v[1], v[2]])).ensure4x4();
+    multMatrix(m);
+  }
+
+  function matScale(m, sx, sy, sz)
+  {
+    m.elements[0][0] *= sx;
+    m.elements[0][1] *= sx;
+    m.elements[0][2] *= sx;
+    m.elements[0][3] *= sx;
+
+    m.elements[1][0] *= sy;
+    m.elements[1][1] *= sy;
+    m.elements[1][2] *= sy;
+    m.elements[1][3] *= sy;
+
+    m.elements[2][0] *= sz;
+    m.elements[2][1] *= sz;
+    m.elements[2][2] *= sz;
+    m.elements[2][3] *= sz;
+
+  }
+  function mvScale(sx, sy, sz)
+  {
+    matScale(mvMatrix, sx, sy, sz);
+    
+  }
+
+  var pMatrix;
+  function perspective(fovy, aspect, znear, zfar) {
+    pMatrix = makePerspective(fovy, aspect, znear, zfar);
+  }
+
+
+  var z = -4.0;
+  var currentlyPressedKeys = Object();
+
+  function handleKeyDown(event) {
+    currentlyPressedKeys[event.keyCode] = true;
+
+    // Handle key presses here
+  }
+
+
+  function handleKeyUp(event) {
+    currentlyPressedKeys[event.keyCode] = false;
+  }
+
+
+  function handleKeys() {
+    if (currentlyPressedKeys[33]) {
+      // Page Up
+      z -= 0.05;
+    }
+    if (currentlyPressedKeys[34]) {
+      // Page Down
+      z += 0.05;
+    }    
+  }
+
+
+  var mouseDown = false;
+  var lastMouseX = null;
+  var lastMouseY = null;
+
+
+  var brainRotationMatrix = $M([
+  [-1,0,0,0],
+  [0,0,1,0],
+  [0,1,0,0],
+  [0,0,0,1]
+  ]);
+  //var brainRotationMatrix = Matrix.I(4);
+
+  function handleMouseDown(event) {
+    mouseDown = true;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+  }
+
+
+  function handleMouseUp(event) {
+    mouseDown = false;
+  }
+
+
+  function handleMouseMove(event) {
+    if (!mouseDown) {
+      return;
+    }
+    var newX = event.clientX;
+    var newY = event.clientY;
+
+    var deltaX = newX - lastMouseX
+    var newRotationMatrix = createRotationMatrix(deltaX / 10, [0, 1, 0]);
+
+    var deltaY = newY - lastMouseY;
+    newRotationMatrix = newRotationMatrix.x(createRotationMatrix(deltaY / 10, [1, 0, 0]));
+
+    brainRotationMatrix = newRotationMatrix.x(brainRotationMatrix);
+
+    lastMouseX = newX
+    lastMouseY = newY;
+  }
+
+  function handleMouseWheel(e) {
+    // From SpiderGL
+    var delta = 0;
+    if (!e) /* For IE. */ {
+            e = window.event;
+    }
+    if (e.wheelDelta) /* IE/Opera. */ {
+            delta = e.wheelDelta / 120;
+            /* In Opera 9, delta differs in sign as compared to IE.
+             */
+            if (window.opera) {
+                    delta = -delta;
+            }
+    }
+    else if (e.detail) /** Mozilla case. */ {
+            /** In Mozilla, sign of delta is different than in IE.
+             * Also, delta is multiple of 3.
+             */
+            delta = -e.detail / 3;
+    }
+    /* If delta is nonzero, handle it.
+     * Basically, delta is now positive if wheel was scrolled up,
+     * and negative, if wheel was scrolled down.
+     */
+    if (delta) {
+        z += (delta / 2);
+    }
+  }
+
+  
+  var gTracks = new Tractography();
+  var gConnectome = new Connectome();
+
+  var gScalarBar = null;
+  var gTextLayer = null;
+  var gHistogram = null;
+  var gBaseURL = '/demo_data/surf';
+  
+
+
+
+
+  function drawScene() {
+
+    var canvas = document.getElementById("webgl-canvas");
+    canvas.width = canvas.clientWidth;//window.innerWidth;
+    canvas.height =canvas.clientHeight;//window.innerHeight;
+    gl.viewportWidth = canvas.width;
+    gl.viewportHeight = canvas.height;
+
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    
+    perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+
+    var scale = 0.01513;
+
+    ////////////////////////////////////////////////////////////////////////
+    //  Draw Tractography
+    ////////////////////////////////////////////////////////////////////////
+    loadIdentity();
+    mvScale(scale, scale, scale);
+    mvTranslate([0.0, 0.0, z / scale]);
+        
+    multMatrix(brainRotationMatrix);
+
+    // This is need to switch from left-handed to right-handed coordinate
+    // frame for the tracks
+    var origMatrix = mvMatrix.dup();
+    mvMatrix.elements[0][1] = origMatrix.elements[0][2];
+    mvMatrix.elements[1][1] = origMatrix.elements[1][2];
+    mvMatrix.elements[2][1] = origMatrix.elements[2][2];
+
+    mvMatrix.elements[0][2] = origMatrix.elements[0][1];
+    mvMatrix.elements[1][2] = origMatrix.elements[1][1];
+    mvMatrix.elements[2][2] = origMatrix.elements[2][1];
+
+
+    
+    // I described the way these matrices are created here:
+    //  http://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferTrackVisTransforms
+    // For demo purposes, these are hard-coded here, whereas in an actual
+    // version of it these will be loaded via XHTTPRequest.
+
+    // mri_info dti_b0.nii --vox2ras-tkr
+    var CRSd2XYZtkreg = $M([[-2.00000,   0.00000,   0.00000,  110.00000],
+                            [0.00000,    0.00000,    2.00000,  -79.00000],
+                            [0.00000,   -2.00000,    0.00000,  110.00000],
+                            [0.00000,    0.00000,    0.00000,    1.00000]]);
+
+    // bbregister --s <subject> --mov dti_b0.nii --init-fsl --reg bbregister.dat --bold --tol1d 1e-3
+    var bbregmatrix = $M([[9.994560e-01, -2.959258e-02, -1.456270e-02, -2.266882e+00],
+                          [1.266916e-02, -6.318483e-02, 9.979210e-01, -2.148178e+01],
+                          [3.045095e-02, 9.975628e-01, 6.277557e-02, 4.659803e-01],
+                          [0, 0, 0, 1]]);
+
+    multMatrix(CRSd2XYZtkreg);
+
+
+    if (gShowTracks && gTracks.vertexPositionBuffer != null)
+    {
+        gTracks.drawTracks(pMatrix, mvMatrix);
+    }
+
+    
+    ////////////////////////////////////////////////////////////////////////
+    //  Draw Brain Surfaces
+    ////////////////////////////////////////////////////////////////////////
+    loadIdentity();
+    mvScale(scale, scale, scale);
+    mvTranslate([0.0, 0.0, z / scale]);
+    multMatrix(brainRotationMatrix);
+
+    // This is need to switch from left-handed to right-handed coordinate
+    // frame for the tracks
+    var origMatrix = mvMatrix.dup();
+    mvMatrix.elements[0][1] = origMatrix.elements[0][2];
+    mvMatrix.elements[1][1] = origMatrix.elements[1][2];
+    mvMatrix.elements[2][1] = origMatrix.elements[2][2];
+
+    mvMatrix.elements[0][2] = origMatrix.elements[0][1];
+    mvMatrix.elements[1][2] = origMatrix.elements[1][1];
+    mvMatrix.elements[2][2] = origMatrix.elements[2][1];
+    
+    multMatrix(bbregmatrix);
+
+    // Draw connectome nodes
+    
+    if (gShowConnectomeNodes)
+    {
+        gConnectome.drawConnectomeNodes(pMatrix, mvMatrix);
+    }
+
+    if (gShowConnectomeEdges)
+    {
+        gConnectome.drawConnectomeEdges(pMatrix, mvMatrix);
+    }
+
+
+    
+    gl.frontFace( gl.CCW );
+    gl.enable( gl.CULL_FACE );
+    gl.enable( gl.BLEND );
+    gl.blendFunc ( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+
+    
+
+    
+    
+    // Draw 2D widgets
+    
+    
+  }
+
+
+
+  var lastTime = 0;
+  function animate() {
+    var timeNow = new Date().getTime();
+    if (lastTime != 0) {
+      var elapsed = timeNow - lastTime;
+
+      // Animate here
+      //var newRotationMatrix = createRotationMatrix(15/10, [0, 1, 0]);
+
+      
+      //newRotationMatrix = newRotationMatrix.x(createRotationMatrix(0, [1, 0, 0]));
+
+      //brainRotationMatrix = newRotationMatrix.x(brainRotationMatrix);
+
+    }
+    lastTime = timeNow;
+  }
+
+  function tick() {
+    var canvas = document.getElementById("webgl-canvas");
+    window.requestAnimationFrame(tick, canvas);
+    
+    handleKeys();
+    drawScene();
+    animate();
+
+    $("#loading").empty().html("");
+
+  }
+
+
+
+
+var gShowTracks = true;
+
+var gShowConnectomeNodes = false;
+var gShowConnectomeEdges = false;
+
+
+
+  function webGLStart() {
+    var canvas = document.getElementById("webgl-canvas");
+    if (canvas == null)
+        return;
+
+    initGL(canvas);
+
+    $("#loading").empty().html('Loading, please wait...');
+   
+
+    gTracks.loadTracks("https://dl.dropboxusercontent.com/s/97d6q0pccwd7mdi/streamline.trk");
+
+
+    gConnectome.loadConnectome("../demo_data/connectome/nodes.json",
+                               "../demo_data/connectome/edges.json",
+                               handleLoadedConnectomeNodes, handleLoadedConnectomeEdges);
+
+
+
+  
+
+  
+
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
+    gl.clearDepth(1.0);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+
+    document.onkeydown = handleKeyDown;
+    document.onkeyup = handleKeyUp;
+    canvas.onmousedown = handleMouseDown;
+    document.onmouseup = handleMouseUp;
+    document.onmousemove = handleMouseMove;
+    document.onmousewheel = handleMouseWheel;
+
+    tick();
+  }
+
+
+
+
+
+function toggleTracks()
+{
+    gShowTracks = $('#tractography:checked').val();
+}
+
+
+
+
+
+function handleTrackLengthSlider(event, ui)
+{
+    //var minSlider = 0;
+    //var maxSlider = 100;
+    //var minTrackLength = (ui.value - minSlider) / (maxSlider - minSlider)
+
+    gTracks.setMinTrackLength(ui.value);
+}
+
+
+function handleLoadedConnectomeNodes(connectome)
+{
+    gShowConnectomeNodes = true;
+}
+
+
+function handleLoadedConnectomeEdges(connectome)
+{
+    gShowConnectomeEdges = true;
+}
+
+
+
+$(function() {
+		$( "#controls" ).accordion({
+			fillSpace: true,
+                        autoHeight: false
+		});
+                $( "#viewer" ).accordion({
+			fillSpace: true,
+                        autoHeight: false
+		});
+
+
+                $( "#slider-tracklength" ).slider({
+                        range: false,
+			min: 0,
+			max: 100,
+			value: 15,
+			slide: handleTrackLengthSlider
+		});
+
+	});
+
+			     
+        // Make sure the accordions get resized properly to 100%.
+        $(window).resize(function(){
+            $("#controls").accordion("resize");
+            $("#viewer").accordion("resize");
+        });
+
+</script>
+
+
+</head>
+
+
+<body onload="webGLStart();" style="font-size:80%;">                
+    <canvas id="webgl-canvas" ></canvas>
+    <input type="checkbox" id="tractography" checked="checked" onclick="toggleTracks()"/>Tractography
+</body>
+
+</html>
