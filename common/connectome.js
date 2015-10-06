@@ -243,8 +243,8 @@ Connectome.prototype =
 
             var numFiberWeight = edge.numberOfFibers / (edgesFile.maxNumFibers - edgesFile.minNumFibers);
             var lengthMeanWeight = edge.fiberLengthMean / (edgesFile.maxFiberLengthMean - edgesFile.minFiberLengthMean);
-            var highColor = [ 1.0, 0.0, 0.0 ];
-            var lowColor = [ 0.25, 0.0, 0.0 ];
+            var highColor = [ 1.0, 1.0, 1.0 ];
+            var lowColor = [ 0.0, 0.0, 1.0 ];
             var color = Array(3);
             for (var c = 0; c < 3; c++)
             {
