@@ -262,6 +262,8 @@
   
   var gTracks = new Tractography();
 
+  var gConnectome = new Connectome();
+
   var gScalarBar = null;
   var gTextLayer = null;
   var gHistogram = null;
@@ -357,6 +359,16 @@
     multMatrix(bbregmatrix);
 
     // Draw connectome nodes
+
+        if (gShowConnectomeNodes)
+    {
+        gConnectome.drawConnectomeNodes(pMatrix, mvMatrix);
+    }
+
+    if (gShowConnectomeEdges)
+    {
+        gConnectome.drawConnectomeEdges(pMatrix, mvMatrix);
+    }
     
     
     gl.frontFace( gl.CCW );
@@ -410,6 +422,9 @@
 
 var gShowTracks = true;
 
+var gShowConnectomeNodes = false;
+var gShowConnectomeEdges = false;
+
 
 
   function webGLStart() {
@@ -425,7 +440,8 @@ var gShowTracks = true;
     gTracks.loadTracks("https://dl.dropboxusercontent.com/s/97d6q0pccwd7mdi/streamline.trk");
 
 
-
+    gConnectome.loadConnectome("/demo_data/connectome/nodes.json",
+                               "/demo_data/connectome/edges.json");
   
 
   
@@ -451,9 +467,10 @@ var gShowTracks = true;
 
 
 
-function toggleTracks()
+function toggleNetwork()
 {
-    gShowTracks = $('#tractography:checked').val();
+    gShowConnectomeNodes = $('#network:checked').val();
+    gShowConnectomeEdges = $('#network:checked').val();
 }
 
 
@@ -468,6 +485,18 @@ function handleTrackLengthSlider(event, ui)
 
     gTracks.setMinTrackLength(ui.value);
 }
+
+function handleLoadedConnectomeNodes(connectome)
+{
+    gShowConnectomeNodes = true;
+}
+
+
+function handleLoadedConnectomeEdges(connectome)
+{
+    gShowConnectomeEdges = true;
+}
+
 
 
 $(function() {
@@ -506,6 +535,7 @@ $(function() {
 
 <body onload="webGLStart();" style="font-size:80%;">                
     <canvas id="webgl-canvas" ></canvas>
+    <input type="checkbox" id="network" onclick="toggleNetwork()"/>
 </body>
 
 </html>
